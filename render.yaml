@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: maquete-poli-upe
+    runtime: static
+    staticPublishPath: .
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+      - path: /Maquete_3D___Campus_POLI-UPE_Arruda.html
+        name: Cache-Control
+        value: public, max-age=3600
