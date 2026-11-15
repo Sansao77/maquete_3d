@@ -1,0 +1,11 @@
+# Dependências e artefatos do app desktop (gerados localmente / no CI)
+desktop/node_modules/
+desktop/app/
+desktop/dist/
+
+# Sistema operacional / editores
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/

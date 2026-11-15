@@ -1,0 +1,26 @@
+{
+  "name": "maquete-3d-poli-upe",
+  "productName": "Maquete 3D POLI-UPE",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aplicativo desktop offline da maquete 3D interativa do campus POLI-UPE Arruda",
+  "author": {
+    "name": "Sansao77",
+    "url": "https://github.com/Sansao77/maquete_3d"
+  },
+  "license": "UNLICENSED",
+  "main": "main.js",
+  "scripts": {
+    "prep": "node scripts/prepare.js",
+    "start": "npm run prep && electron .",
+    "build": "npm run prep && electron-builder --publish never",
+    "build:win": "npm run prep && electron-builder --win --publish never",
+    "build:mac": "npm run prep && electron-builder --mac --publish never",
+    "build:linux": "npm run prep && electron-builder --linux --publish never"
+  },
+  "devDependencies": {
+    "electron": "^45.3.2",
+    "electron-builder": "^26.18.0",
+    "three": "0.128.0"
+  }
+}

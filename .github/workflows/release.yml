@@ -1,0 +1,126 @@
+name: release
+
+# Push na main: o release-please mantém uma PR de release e, quando ela é
+# mergeada, cria a tag vX.Y.Z + GitHub Release. O build dos zips roda no MESMO
+# workflow (via output release_created), porque tags criadas com GITHUB_TOKEN
+# não disparam outros workflows.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag de release existente para anexar os zips (ex.: v1.2.3). Vazio = só artefatos do workflow.'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: release-please
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Rodar release-please
+        id: release
+        uses: googleapis/release-please-action@v5
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  build:
+    name: build (${{ matrix.artifact_os }})
+    needs: release-please
+    # Roda quando uma release foi criada OU em execução manual (teste do empacotamento).
+    if: |
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+       needs.release-please.outputs.release_created == 'true')
+    runs-on: ${{ matrix.os }}
+    # contents: write é necessário apenas para anexar os zips à Release.
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Para desativar uma plataforma, comente a linha correspondente.
+          - os: windows-latest
+            artifact_os: win
+          - os: ubuntu-latest
+            artifact_os: linux
+          - os: macos-latest
+            artifact_os: mac
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configurar Node LTS
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Instalar dependências
+        working-directory: desktop
+        run: npm ci
+
+      - name: Preparar app offline (copia index.html + vendoriza three)
+        working-directory: desktop
+        run: npm run prep
+
+      - name: Resolver versão e tag
+        id: meta
+        shell: bash
+        env:
+          RP_VERSION: ${{ needs.release-please.outputs.version }}
+          RP_TAG: ${{ needs.release-please.outputs.tag_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          version="${RP_VERSION:-}"
+          if [ -z "$version" ]; then
+            version="$(node -p "require('./desktop/package.json').version")"
+          fi
+          tag="${RP_TAG:-}"
+          if [ -z "$tag" ]; then
+            tag="${INPUT_TAG:-}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Empacotar com electron-builder
+        working-directory: desktop
+        run: npx electron-builder --publish never
+
+      - name: Publicar zip como artefato do workflow
+        uses: actions/upload-artifact@v7
+        with:
+          name: maquete-3d-poli-upe-v${{ steps.meta.outputs.version }}-${{ matrix.artifact_os }}-x64.zip
+          path: desktop/dist/*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Anexar zip à GitHub Release
+        if: steps.meta.outputs.tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: gh release upload "$TAG" desktop/dist/*.zip --clobber

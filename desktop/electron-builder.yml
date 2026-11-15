@@ -1,0 +1,44 @@
+appId: br.edu.upe.poli.maquete3d
+productName: Maquete 3D POLI-UPE
+copyright: Campus POLI-UPE Arruda
+
+directories:
+  output: dist
+  buildResources: build
+
+# Apenas o shell Electron + o app gerado por scripts/prepare.js entram no pacote.
+# three/electron/electron-builder são devDependencies e ficam fora por padrão.
+files:
+  - main.js
+  - package.json
+  - app/**/*
+
+asar: true
+compression: maximum
+npmRebuild: false
+
+win:
+  target:
+    - target: zip
+      arch:
+        - x64
+  artifactName: maquete-3d-poli-upe-v${version}-win-${arch}.${ext}
+
+mac:
+  target:
+    - target: zip
+      arch:
+        - x64
+  category: public.app-category.education
+  # Sem certificado Apple no CI: gera zip não assinado em vez de falhar o build.
+  identity: null
+  artifactName: maquete-3d-poli-upe-v${version}-mac-${arch}.${ext}
+
+linux:
+  target:
+    - target: zip
+      arch:
+        - x64
+  category: Education
+  executableName: maquete-3d-poli-upe
+  artifactName: maquete-3d-poli-upe-v${version}-linux-${arch}.${ext}
